@@ -1,40 +1,43 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-// #define DEBUG
+#define DEBUG
 
 void compress(FILE * fp) {
-  char * buffer;
-  size_t len = 0;
-  ssize_t read;
-
   #ifdef DEBUG
     printf("DEBUG> Entered compress\n");
   #endif
-  while((read = getline(&buffer, &len, fp)) != -1) {
-    #ifdef DEBUG
-      printf("DEBUG> Running while loop.\n");
-    #endif
-    int count = 0;
-    int runner = 0;
-    int curr = 0;
-    size_t lengthOfLine = strlen(buffer);  
-    while(runner < (int)lengthOfLine) {
-      while(buffer[curr] == buffer[runner]) {
-        if(runner == lengthOfLine) break;
-        count++;
-        runner++;
+
+  char character;
+  char newCharacter;
+  int count = 0;  
+  while((character = fgetc(fp)) != EOF) {
+    while((newCharacter = fgetc(fp)) != EOF) {
+      count++;
+      // Handle case that new character is the EOF
+      if(newCharacter == EOF) {
+        #ifdef DEBUG
+          printf("DEBUG> End of file. Count is %d, char is %c", count, character);
+        #endif
+        fwrite(&count, sizeof(int), 1, stdout);
+        fwrite(&character, sizeof(char), 1, stdout);
+        break;  
       }
-      #ifdef DEBUG
-        printf("DEBUG> Output should be: %d%c\n", count, buffer[curr]);
-      #endif
-      fwrite(&count, sizeof(int), 1, stdout);
-      fwrite(&buffer[curr], sizeof(char), 1, stdout);
-      curr = runner;
-      count = 0;
+      // Handle the case that the new character equals the old character
+      else if(newCharacter == character) {
+        // ungetc(newCharacter, fp);
+        continue;
+      }
+      // Handle the case that the new character does not equal the old character.
+      else {
+        fwrite(&count, sizeof(int), 1, stdout);
+        fwrite(&character, sizeof(int), 1, stdout);
+        count = 0;
+        ungetc(newCharacter, fp);
+        break;
+      }
     }
   }
-  free(buffer);
 }
 
 int main(int argc, char * argv[]) {
