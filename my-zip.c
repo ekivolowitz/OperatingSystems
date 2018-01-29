@@ -1,42 +1,39 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#define DEBUG
+// #define DEBUG
+
+
+int findDistance(FILE * fp, char curr, int count) {
+  char newChar;
+  while((newChar = fgetc(fp))) {
+    #ifdef DEBUG
+      //printf("DEBUG> Char is: %c | newChar is %c\n", curr, newChar);
+      if(newChar == '\n') printf("NEWLINE DETECTED\n");
+    #endif
+    if(newChar == curr) count++;
+    else {
+      if(newChar != EOF) {
+        ungetc(newChar, fp);
+        return count;
+      } else {
+        return count;
+      }
+    }
+  }
+  return count;
+}
 
 void compress(FILE * fp) {
   #ifdef DEBUG
     printf("DEBUG> Entered compress\n");
   #endif
-
-  char character;
-  char newCharacter;
-  int count = 0;  
-  while((character = fgetc(fp)) != EOF) {
-    while((newCharacter = fgetc(fp)) != EOF) {
-      count++;
-      // Handle case that new character is the EOF
-      if(newCharacter == EOF) {
-        #ifdef DEBUG
-          printf("DEBUG> End of file. Count is %d, char is %c", count, character);
-        #endif
-        fwrite(&count, sizeof(int), 1, stdout);
-        fwrite(&character, sizeof(char), 1, stdout);
-        break;  
-      }
-      // Handle the case that the new character equals the old character
-      else if(newCharacter == character) {
-        // ungetc(newCharacter, fp);
-        continue;
-      }
-      // Handle the case that the new character does not equal the old character.
-      else {
-        fwrite(&count, sizeof(int), 1, stdout);
-        fwrite(&character, sizeof(int), 1, stdout);
-        count = 0;
-        ungetc(newCharacter, fp);
-        break;
-      }
-    }
+  int count = 1;
+  char curr;
+  while((curr = fgetc(fp)) != EOF) {
+    int size = findDistance(fp, curr, count);
+    fwrite(&size, sizeof(int), 1, stdout);
+    fwrite(&curr, sizeof(char), 1, stdout);
   }
 }
 
