@@ -21,7 +21,7 @@ int main(int argc, char * argv[]) {
       exit(1);
     }
     else {
-      char buffer[512];
+      char buffer[BUFFER_SIZE];
       while(fgets(buffer, BUFFER_SIZE, fp) != NULL)
         printf("%s", buffer);
       fclose(fp);
