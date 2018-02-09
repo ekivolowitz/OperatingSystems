@@ -111,8 +111,8 @@ int main(int argc, char * argv[]) {
       printf("Cannot open file\n");
     compress(temp);
     fclose(temp);
-
+    remove("temp.a");
   }
-
+  
   return 0;
 }
