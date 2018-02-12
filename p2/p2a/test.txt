@@ -1,0 +1,4 @@
+ls -la 
+cat readfile.c
+grep help readfile.c
+this is a test testing stuff out is fun.
