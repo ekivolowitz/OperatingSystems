@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-
-
 #define DEBUG
 
 // Write a function to check how many args are in a statement. There will be a lot of arg
@@ -12,7 +10,6 @@
 void errMessage() {
   char error_message[30] = "An error has occurred\n";
   write(STDERR_FILENO, error_message, strlen(error_message));
-  exit(1);
 }
 
 char * tokenize(char * string, const char * delim) {
@@ -20,23 +17,34 @@ char * tokenize(char * string, const char * delim) {
 }
 
 // Expecting modification of string
-char ** getCommands(char * string) {
+char ** getCommands(char * string, int * numCommands) {
   char * delim = "&";
   char ** commands = malloc(sizeof(char *) * strlen(string));
   for(int i = 0; i < strlen(string); i++) {
     commands[i] = NULL;
   }
   int count = 0;
-  char 
-  * splitOnAnd = tokenize(string, delim);
+  char * splitOnAnd = tokenize(string, delim);
   while(splitOnAnd != NULL) {
-    commands[count] = splitOnAnd;
+    char * string = malloc(sizeof(char) * strlen(splitOnAnd));
+    strcpy(string, splitOnAnd);
+    commands[count] = string;
     count++;
     splitOnAnd = tokenize(NULL, delim);
   }
+  *numCommands = count;
   return commands;
 }
 
+char * getProgName(char * command) {
+  char * delim = " \n\t";
+  char tempInput[strlen(command)];
+  strcpy(tempInput, command);
+  char * splitOnWhiteSpace = tokenize(tempInput, delim);
+  char * temp = malloc(sizeof(char) * strlen(splitOnWhiteSpace));
+  strcpy(temp, splitOnWhiteSpace);
+  return temp; 
+}
 
 int findNumArgs(const char * string) {
   // Create a local copy of the string
@@ -52,93 +60,98 @@ int findNumArgs(const char * string) {
   return numArgs;
 }
 
+char ** getArguments(char * command) {
+  char * delim = " \n\t";
+  char tempInput[strlen(command)];
+  strcpy(tempInput, command);
+  
+  int numArgs = findNumArgs(command);
 
+  char ** arguments = malloc(sizeof(char) * numArgs);
+
+  // This should get rid of the command name.
+  tokenize(tempInput, delim);
+  char * arg = tokenize(NULL, delim);
+  for(int i = 0; i < numArgs; ++i) {
+    char * string = malloc(sizeof(char) * strlen(arg));
+    strcpy(string, arg);
+    arguments[i] = string;
+    arg = tokenize(NULL, delim);
+  }
+  return arguments;
+}
+
+int freeDoubleCharArray()
 
 
 int main(int argc, char * argv[]) {
   char path[1024];
   char * startingPath = "/bin";
   strncpy(path, startingPath, strlen(startingPath));
-  printf("length of path: %lu\n", strlen(path));
-  printf("Starting path is: %s\n",path);
+  #ifdef DEBUG
+    printf("length of path: %lu\n", strlen(path));
+    printf("Starting path is: %s\n",path);
+  #endif
   switch(argc){
     case 1: ;
       // read from stdin
       while(1) {
+
         printf("wish> ");
         char * input = NULL;
-        // char * space = " ";
-        // char * exitWord = "exit";
-        // char * exitWordNewLine = "exit\n";
-        // char * cdWord = "cd";
-        // char * cdWordNewLine = "cd\n";
-        // char * pathWord = "path";
-        // char * pathWordNewLine = "path\n";
+        char * exitWord = "exit";
+        char * cdWord = "cd";
+        char * pathWord = "path";
 
         size_t length = 0;
         ssize_t read;
         read = getline(&input, &length, stdin);
+
         if(read == -1) { 
-          printf("Error reading from stdin.\n");
+          #ifdef DEBUG
+            printf("Error reading from stdin.\n");
+          #endif
           exit(1);
         }
         char tempInput[length];
         strcpy(tempInput, input);
-        // char * splitOnSpace = tokenizeSpace(tempInput, space);
-        // char ** commands = getCommands(tempInput);
-        // printf("%s", commands[0]);
-        // free(commands);
 
+        int numCommands = 0;
+        char ** commands = getCommands(tempInput, &numCommands);
 
-        // while(splitOnSpace != NULL) {
-          // test for exit / cd / path
+        for(int i = 0; i < numCommands; ++i) {
+          char command[strlen(commands[i])];
+          strcpy(command, commands[i]);
+          char * program = getProgName(command);
+          char ** args = getArguments(command);
+
+          for(int j = 0; j < findNumArgs(command); j++) {
+            printf(" %s", args[j]);
+          }
+          printf("\n");
+          #ifdef DEBUG
+            printf("Program is: %s\n", program);
+          #endif
           
-        //   // Tests if cd [args] exit [args] path [args] was entered, including the words themselves with the newline character.
-        //   if(   
-        //       strcmp(exitWordNewLine, splitOnSpace) == 0 || 
-        //       strcmp(exitWord, splitOnSpace) == 0 ||
-        //       strcmp(cdWord, splitOnSpace) == 0 ||
-        //       strcmp(cdWordNewLine, splitOnSpace) == 0 ||
-        //       strcmp(pathWord, splitOnSpace) == 0 || 
-        //       strcmp(pathWordNewLine, splitOnSpace) == 0
-        //   ){
-        //     // Exit check. Checks that either exit asfasdf or exit\n was entered but excludes whitespace 
-        //     // 
-        //     if(strcmp(exitWord, splitOnSpace) == 0 || strcmp(exitWordNewLine, splitOnSpace) == 0) {
-        //       //In the event that exit has params sent to it, error
-        //       if((splitOnSpace = tokenizeSpace(NULL, space)) != NULL && strcmp(splitOnSpace, "\n") != 0) {
-        //         errMessage();
-        //       } else exit(0);
-        //     }
-        //     else if(strcmp(cdWord, splitOnSpace) == 0) {
-        //       // handle cd
-        //     }/* end handle cd */ else {
-        //       // handle path
-        //       char temp[length];
-        //       strcpy(temp, input);
-        //       char * tempSplitOnSpace = tokenizeSpace(temp, space);
-        //       while(tempSplitOnSpace != NULL) {
-        //         if(strcmp(pathWord, tempSplitOnSpace) != 0) {
-        //           char addToPath[strlen(tempSplitOnSpace) + 1];
-        //           addToPath[0] = ' ';
-        //           strncat(addToPath, tempSplitOnSpace, strlen(tempSplitOnSpace) - 1);
-        //           printf("addToPath is %s\n", addToPath);
-        //           strcat(path, addToPath);
+          if(strcmp(exitWord, program) == 0) findNumArgs(command) == 0 ? exit(0) : errMessage();
+          else if(strcmp(cdWord, program) == 0) { // handle the case that cd was entered
+            // cd 
+          } else if(strcmp(pathWord, program) == 0) { // handle the case that path was entered 
+            // path
+            
 
-        //         }
-        //         printf("Path is: %s\n", path);
-        //         tempSplitOnSpace = tokenizeSpace(NULL, space);
-        //       }
-
-        //     } // end handle path
-        //   } else {
-        //     printf("Not recognized\n");
-        //   }
-        //   splitOnSpace = tokenizeSpace(NULL, space);
-        // }
-        // split by spaces and search for exit, cd, and path
-
-
+          } else {
+            // handle everything else
+          }
+          // free(args);
+          free(program);
+        }
+        // free(commands);
+        for(int i = 0; i < numCommands; i++) {
+          free(commands[i]);
+        }
+        free(commands);
+        free(input);
       }
       break;
 
@@ -154,5 +167,6 @@ int main(int argc, char * argv[]) {
       errMessage();
       
   }
+  exit(0);
   return 0;
 }
