@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/wait.h>
 #define DEBUG
 
 // Write a function to check how many args are in a statement. There will be a lot of arg
@@ -125,11 +126,55 @@ void handleCD(char * command) {
   if(success != 0) errMessage();
 }
 
+int getNumPaths(char * path) {
+  char tempPath[strlen(path)];
+  char * delim = " ";
+  int count = 0;
+  strcpy(tempPath, path);
+  char * splitOnWhiteSpace = tokenize(tempPath, delim);
+  while(splitOnWhiteSpace != NULL) {
+    count++;
+    splitOnWhiteSpace = tokenize(NULL, delim);
+  }
+  return count;
+}
+
+
+char ** getPaths(char * path) {
+  char tempPath[strlen(path)];
+  int numPaths = getNumPaths(path);
+  char * delim = " ";
+  if(numPaths <= 0) {
+    #ifdef DEBUG
+      printf("getPaths is borked. Less than or equal to 0 paths.\n");
+    #endif
+    exit(1);
+  }
+  char ** paths = malloc(sizeof(char *) * numPaths);
+  strcpy(tempPath, path);
+  char * splitOnWhiteSpace = tokenize(tempPath, delim);
+  int count = 0;
+  while(splitOnWhiteSpace != NULL) {
+    char * string = malloc(sizeof(char) * strlen(splitOnWhiteSpace));
+    strcpy(string, splitOnWhiteSpace);
+    paths[count] = string;
+    count++;
+    splitOnWhiteSpace = tokenize(NULL, delim);
+  }
+  return paths;
+}
+
+
+
+
+
+
 int main(int argc, char * argv[]) {
   char path[1024];
   char * startingPath = "/bin";
   strncpy(path, startingPath, strlen(startingPath));
   #ifdef DEBUG
+    printf("strlen(startingPath): %lu\n", strlen(startingPath));
     printf("length of path: %lu\n", strlen(path));
     printf("Starting path is: %s\n",path);
   #endif
@@ -165,6 +210,50 @@ int main(int argc, char * argv[]) {
           else if(strcmp("path", program) == 0)handlePath(path, command);
           else {
             // handle everything else
+            int rc = fork();
+            if(rc < 0) {
+              #ifdef DEBUG
+                printf("Fork failed\n");
+              #endif
+
+            } else if(rc == 0) {
+              #ifdef DEBUG
+                printf("I am child process. Hear me roar\n");
+              #endif
+              // search within the paths with access for a command
+              // According to fork man page At the time of fork() both memory spaces have the
+              // same content
+              char ** paths = getPaths(path);
+              int numPaths = getNumPaths(path);
+              for(int currPath = 0; currPath < numPaths; currPath++) {
+                char slashPrependedProgName[strlen(program) + 1];
+                
+                slashPrependedProgName[0] = '/';
+                strcat(slashPrependedProgName, program);
+                
+                char pathAndProgName[strlen(slashPrependedProgName) + strlen(paths[currPath])];
+                #ifdef DEBUG
+                  printf("slashPrependedProgName is %s\n", slashPrependedProgName);
+                #endif
+
+                strcat(pathAndProgName, paths[currPath]);
+                strcat(pathAndProgName, slashPrependedProgName);
+                #ifdef DEBUG
+                  printf("pathAndProgName is: %s\n", pathAndProgName);
+                #endif
+
+              }
+                // if a command is found, run execv with args (path/command, pointer to arguments)
+
+              freeDoubleCharArray(paths, numPaths);
+            } else {
+            
+              int wc = wait(NULL);
+              #ifdef DEBUG
+                printf("I am parent %d. Child has finished.\n", wc);
+              #endif 
+
+            }
           }
           free(program);
         }
