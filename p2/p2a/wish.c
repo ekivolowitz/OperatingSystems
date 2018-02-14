@@ -50,8 +50,8 @@ int findNumArgs(const char * string) {
   // Create a local copy of the string
   char * whitespace = " \t\n";
   char tempInput[strlen(string)];
-  int numArgs = -1; // -1 to offset the program counting as an arg
   strcpy(tempInput, string);
+  int numArgs = -1; // -1 to offset the program counting as an arg
   char * splitOnWhiteSpace = tokenize(tempInput, whitespace);
   while(splitOnWhiteSpace != NULL) {
     numArgs++;
@@ -67,7 +67,7 @@ char ** getArguments(char * command) {
   
   int numArgs = findNumArgs(command);
 
-  char ** arguments = malloc(sizeof(char) * numArgs);
+  char ** arguments = malloc(sizeof(char *) * numArgs);
 
   // This should get rid of the command name.
   tokenize(tempInput, delim);
@@ -81,8 +81,49 @@ char ** getArguments(char * command) {
   return arguments;
 }
 
-int freeDoubleCharArray()
+void freeDoubleCharArray(char ** array, int numElements) {
+  for(int i = 0; i < numElements; ++i) {
+    free(array[i]);
+  }
+}
 
+void handleExit(char * command) {
+  findNumArgs(command) == 0 ? exit(0) : errMessage();
+}
+
+
+void handlePath(char * path, char * command) {
+  char ** addToPaths = getArguments(command);
+  int numberOfArgsInPath = findNumArgs(command);
+  #ifdef DEBUG
+    for(int j = 0; j < numberOfArgsInPath; j++) {
+      printf("Arg %d is: %s\n", j, addToPaths[j]);
+    }
+  #endif
+  for(int pathArg = 0; pathArg < numberOfArgsInPath; pathArg++) {
+  char * arg = addToPaths[pathArg];
+  char spaceAdd[strlen(arg) + 1];
+  strcpy(spaceAdd, " ");
+  strcat(spaceAdd, arg);
+  strcat(path, spaceAdd);
+  #ifdef DEBUG
+    printf("spaceAdd is: %s\n", spaceAdd);
+    printf("Path is: %s\n", path);
+  #endif
+  }
+  freeDoubleCharArray(addToPaths, numberOfArgsInPath);
+}
+
+void handleCD(char * command) {
+  if(findNumArgs(command) != 1)  {
+    errMessage();
+    return;
+  }
+  char ** arg = getArguments(command);
+  int success = chdir(arg[0]);
+  free(arg[0]);
+  if(success != 0) errMessage();
+}
 
 int main(int argc, char * argv[]) {
   char path[1024];
@@ -96,23 +137,18 @@ int main(int argc, char * argv[]) {
     case 1: ;
       // read from stdin
       while(1) {
-
         printf("wish> ");
         char * input = NULL;
-        char * exitWord = "exit";
-        char * cdWord = "cd";
-        char * pathWord = "path";
-
         size_t length = 0;
         ssize_t read;
         read = getline(&input, &length, stdin);
-
         if(read == -1) { 
           #ifdef DEBUG
             printf("Error reading from stdin.\n");
           #endif
           exit(1);
         }
+
         char tempInput[length];
         strcpy(tempInput, input);
 
@@ -123,33 +159,16 @@ int main(int argc, char * argv[]) {
           char command[strlen(commands[i])];
           strcpy(command, commands[i]);
           char * program = getProgName(command);
-          char ** args = getArguments(command);
 
-          for(int j = 0; j < findNumArgs(command); j++) {
-            printf(" %s", args[j]);
-          }
-          printf("\n");
-          #ifdef DEBUG
-            printf("Program is: %s\n", program);
-          #endif
-          
-          if(strcmp(exitWord, program) == 0) findNumArgs(command) == 0 ? exit(0) : errMessage();
-          else if(strcmp(cdWord, program) == 0) { // handle the case that cd was entered
-            // cd 
-          } else if(strcmp(pathWord, program) == 0) { // handle the case that path was entered 
-            // path
-            
-
-          } else {
+          if(strcmp("exit", program) == 0)  handleExit(command);
+          else if(strcmp("cd", program) == 0) handleCD(command);
+          else if(strcmp("path", program) == 0)handlePath(path, command);
+          else {
             // handle everything else
           }
-          // free(args);
           free(program);
         }
-        // free(commands);
-        for(int i = 0; i < numCommands; i++) {
-          free(commands[i]);
-        }
+        freeDoubleCharArray(commands, numCommands);
         free(commands);
         free(input);
       }
