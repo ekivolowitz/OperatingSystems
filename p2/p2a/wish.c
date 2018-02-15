@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <string.h>
 #include <sys/wait.h>
 #define DEBUG
@@ -161,7 +162,7 @@ int getNumPaths(char * path) {
 
 
 char ** getPaths(char * path) {
-  char tempPath[strlen(path)];
+  char tempPath[strlen(path) + 1];
   int numPaths = getNumPaths(path);
   char * delim = " ";
   if(numPaths <= 0) {
@@ -175,7 +176,7 @@ char ** getPaths(char * path) {
   char * splitOnWhiteSpace = tokenize(tempPath, delim);
   int count = 0;
   while(splitOnWhiteSpace != NULL) {
-    char * string = malloc(sizeof(char) * strlen(splitOnWhiteSpace));
+    char * string = malloc(sizeof(char) * strlen(splitOnWhiteSpace) + 1);
     strcpy(string, splitOnWhiteSpace);
     paths[count] = string;
     count++;
@@ -185,7 +186,35 @@ char ** getPaths(char * path) {
 }
 
 
+void executeCommand(char * command, char * program, char * path) {
+  char * slash = "/";
+  char prependedSlash[strlen(program) + strlen(slash) + 1];
+  strcpy(prependedSlash, slash);
+  strcat(prependedSlash, program);
+  prependedSlash[strlen(prependedSlash)] = '\0';
+  char ** allPaths = getPaths(path);
+  for(int j = 0; j < getNumPaths(path); j++) {
+    char fullPath[strlen(prependedSlash) + strlen(allPaths[j]) + 1];
+    strcpy(fullPath, allPaths[j]);
+    strcat(fullPath, prependedSlash);
+    fullPath[strlen(fullPath)] = '\0';
+    #ifdef DEBUG
+      printf("Full path is: %s\n", fullPath);
+    #endif
+    if(access(fullPath, X_OK) == 0) {
+      char ** arguments = getArguments(command);
+      execv(fullPath, arguments);
+      freeDoubleCharArray(arguments, findNumArgs(command));
+      free(arguments);
+      
+    } else {
+      printf("%s does not exist.\n", fullPath);
+    }
+  }
+  freeDoubleCharArray(allPaths, getNumPaths(path));
+  free(allPaths);
 
+}
 
 
 
@@ -216,7 +245,7 @@ int main(int argc, char * argv[]) {
         char ** commands = getCommands(tempInput, &numCommands);
 
         for(int i = 0; i < numCommands; ++i) {
-          char command[strlen(commands[i])];
+          char command[strlen(commands[i]) + 1];
           strcpy(command, commands[i]);
           if(strcmp("\n", command) == 0) break;
           char * program = getProgName(command);
@@ -229,9 +258,21 @@ int main(int argc, char * argv[]) {
             handleExit(command);
           } else if(strcmp("cd", program) == 0) handleCD(command);
           else if(strcmp("path", program) == 0) path = handlePath(path, command);
-          // else {
-          
-          // }
+          else {
+            int rc = fork();
+            if(rc < 0) {
+              printf("Rhut rho rc < 0\n");
+              exit(2);
+            } else if(rc == 0) {
+              // child process
+              executeCommand(command, program, path);
+
+
+            } else {
+              wait(NULL);
+              printf("Returned from parent\n");
+            }
+          }
           free(program);
         }
         freeDoubleCharArray(commands, numCommands);
@@ -251,6 +292,5 @@ int main(int argc, char * argv[]) {
       errMessage();
       
   }
-  // free(path);
   return 0;
 }
