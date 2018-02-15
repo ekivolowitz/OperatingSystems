@@ -27,7 +27,7 @@ char ** getCommands(char * string, int * numCommands) {
   int count = 0;
   char * splitOnAnd = tokenize(string, delim);
   while(splitOnAnd != NULL) {
-    char * string = malloc(sizeof(char) * strlen(splitOnAnd));
+    char * string = malloc(sizeof(char) * strlen(splitOnAnd) + 1);
     strcpy(string, splitOnAnd);
     commands[count] = string;
     count++;
@@ -42,7 +42,7 @@ char * getProgName(char * command) {
   char tempInput[strlen(command)];
   strcpy(tempInput, command);
   char * splitOnWhiteSpace = tokenize(tempInput, delim);
-  char * temp = malloc(sizeof(char) * strlen(splitOnWhiteSpace));
+  char * temp = malloc(sizeof(char) * strlen(splitOnWhiteSpace) + 1);
   strcpy(temp, splitOnWhiteSpace);
   return temp; 
 }
@@ -74,7 +74,7 @@ char ** getArguments(char * command) {
   tokenize(tempInput, delim);
   char * arg = tokenize(NULL, delim);
   for(int i = 0; i < numArgs; ++i) {
-    char * string = malloc(sizeof(char) * strlen(arg));
+    char * string = malloc(sizeof(char) * strlen(arg) + 1);
     strcpy(string, arg);
     arguments[i] = string;
     arg = tokenize(NULL, delim);
@@ -93,26 +93,37 @@ void handleExit(char * command) {
 }
 
 
-void handlePath(char * path, char * command) {
+char * handlePath(char * path, char * command) {
+  #ifdef DEBUG
+    printf("DEBUG> %s\n", path);
+  #endif
+
+  // Gets all of the arguments as a list of strings. Remember to free this shit. 
   char ** addToPaths = getArguments(command);
   int numberOfArgsInPath = findNumArgs(command);
-  #ifdef DEBUG
-    for(int j = 0; j < numberOfArgsInPath; j++) {
-      printf("Arg %d is: %s\n", j, addToPaths[j]);
-    }
-  #endif
+
+  size_t sizeOfNewPaths = 0;
+
+  // have to add 2 at the end. One because strlen excludes the null terminator, one because we have to prepend
+  // a space to the string. 
+  for(int pathArg = 0; pathArg < numberOfArgsInPath; pathArg++) sizeOfNewPaths += strlen(addToPaths[pathArg]) + 2;
+  
+  // + 1 because strlen does not count the null terminator
+  size_t totalNewPathSize = strlen(path) + sizeOfNewPaths + 1;
+  char tempPath[totalNewPathSize];
+  strcpy(tempPath, path);
+  free(path);
+
   for(int pathArg = 0; pathArg < numberOfArgsInPath; pathArg++) {
-  char * arg = addToPaths[pathArg];
-  char spaceAdd[strlen(arg) + 1];
-  strcpy(spaceAdd, " ");
-  strcat(spaceAdd, arg);
-  strcat(path, spaceAdd);
-  #ifdef DEBUG
-    printf("spaceAdd is: %s\n", spaceAdd);
-    printf("Path is: %s\n", path);
-  #endif
+    strcat(tempPath, " ");
+    strcat(tempPath, addToPaths[pathArg]);
   }
-  freeDoubleCharArray(addToPaths, numberOfArgsInPath);
+
+  char * newPath = malloc(sizeof(char) * totalNewPathSize);
+  strcpy(newPath, tempPath);
+  freeDoubleCharArray(addToPaths, findNumArgs(command));
+  free(addToPaths);
+  return newPath;
 }
 
 void handleCD(char * command) {
@@ -170,13 +181,13 @@ char ** getPaths(char * path) {
 
 
 int main(int argc, char * argv[]) {
-  char path[1024];
+  char * path = malloc(sizeof(char) * 5);
   char * startingPath = "/bin";
-  strncpy(path, startingPath, strlen(startingPath));
+  strncpy(path, startingPath, strlen(startingPath) + 1);
   #ifdef DEBUG
-    printf("strlen(startingPath): %lu\n", strlen(startingPath));
-    printf("length of path: %lu\n", strlen(path));
-    printf("Starting path is: %s\n",path);
+    // printf("strlen(startingPath): %lu\n", strlen(startingPath));
+    // printf("length of path: %lu\n", strlen(path));
+    // printf("Starting path is: %s\n",path);
   #endif
   switch(argc){
     case 1: ;
@@ -193,7 +204,6 @@ int main(int argc, char * argv[]) {
           #endif
           exit(1);
         }
-
         char tempInput[length];
         strcpy(tempInput, input);
 
@@ -203,63 +213,29 @@ int main(int argc, char * argv[]) {
         for(int i = 0; i < numCommands; ++i) {
           char command[strlen(commands[i])];
           strcpy(command, commands[i]);
+          if(strcmp("\n", command) == 0) break;
           char * program = getProgName(command);
-
-          if(strcmp("exit", program) == 0)  handleExit(command);
-          else if(strcmp("cd", program) == 0) handleCD(command);
-          else if(strcmp("path", program) == 0)handlePath(path, command);
-          else {
-            // handle everything else
-            int rc = fork();
-            if(rc < 0) {
-              #ifdef DEBUG
-                printf("Fork failed\n");
-              #endif
-
-            } else if(rc == 0) {
-              #ifdef DEBUG
-                printf("I am child process. Hear me roar\n");
-              #endif
-              // search within the paths with access for a command
-              // According to fork man page At the time of fork() both memory spaces have the
-              // same content
-              char ** paths = getPaths(path);
-              int numPaths = getNumPaths(path);
-              for(int currPath = 0; currPath < numPaths; currPath++) {
-                char slashPrependedProgName[strlen(program) + 1];
-                
-                slashPrependedProgName[0] = '/';
-                strcat(slashPrependedProgName, program);
-                
-                char pathAndProgName[strlen(slashPrependedProgName) + strlen(paths[currPath])];
-                #ifdef DEBUG
-                  printf("slashPrependedProgName is %s\n", slashPrependedProgName);
-                #endif
-
-                strcat(pathAndProgName, paths[currPath]);
-                strcat(pathAndProgName, slashPrependedProgName);
-                #ifdef DEBUG
-                  printf("pathAndProgName is: %s\n", pathAndProgName);
-                #endif
-
-              }
-                // if a command is found, run execv with args (path/command, pointer to arguments)
-
-              freeDoubleCharArray(paths, numPaths);
-            } else {
-            
-              int wc = wait(NULL);
-              #ifdef DEBUG
-                printf("I am parent %d. Child has finished.\n", wc);
-              #endif 
-
-            }
-          }
+          printf("%s", program);
+          if(strcmp("exit", program) == 0) {
+            freeDoubleCharArray(commands, numCommands);
+            free(commands);
+            free(path);
+            free(program);
+            free(input);
+            handleExit(command);
+          } else if(strcmp("cd", program) == 0) handleCD(command);
+          else if(strcmp("path", program) == 0) path = handlePath(path, command);
+          // else {
+          
+          // }
+          printf("new path is: %s\n", path);
           free(program);
         }
         freeDoubleCharArray(commands, numCommands);
         free(commands);
+        free(path);
         free(input);
+        exit(0);
       }
       break;
 
@@ -275,6 +251,6 @@ int main(int argc, char * argv[]) {
       errMessage();
       
   }
-  exit(0);
+  // free(path);
   return 0;
 }
