@@ -13,6 +13,12 @@ void errMessage() {
   write(STDERR_FILENO, error_message, strlen(error_message));
 }
 
+void freeDoubleCharArray(char ** array, int numElements) {
+  for(int i = 0; i < numElements; ++i) {
+    free(array[i]);
+  }
+}
+
 char * tokenize(char * string, const char * delim) {
   return strtok(string, delim);
 }
@@ -82,11 +88,7 @@ char ** getArguments(char * command) {
   return arguments;
 }
 
-void freeDoubleCharArray(char ** array, int numElements) {
-  for(int i = 0; i < numElements; ++i) {
-    free(array[i]);
-  }
-}
+
 
 void handleExit(char * command) {
   findNumArgs(command) == 0 ? exit(0) : errMessage();
@@ -94,13 +96,19 @@ void handleExit(char * command) {
 
 
 char * handlePath(char * path, char * command) {
-  #ifdef DEBUG
-    printf("DEBUG> %s\n", path);
-  #endif
 
   // Gets all of the arguments as a list of strings. Remember to free this shit. 
-  char ** addToPaths = getArguments(command);
   int numberOfArgsInPath = findNumArgs(command);
+  if(numberOfArgsInPath == 0) {
+    char tempPath[strlen(path) + 1];
+    strcpy(tempPath, path);
+    printf("tempPath is: %s\n", tempPath);
+    free(path);
+    char * newPath = malloc(sizeof(char) * strlen(tempPath) + 1);
+    strcpy(newPath, tempPath);
+    return newPath;
+  }
+  char ** addToPaths = getArguments(command);
 
   size_t sizeOfNewPaths = 0;
 
@@ -133,7 +141,8 @@ void handleCD(char * command) {
   }
   char ** arg = getArguments(command);
   int success = chdir(arg[0]);
-  free(arg[0]);
+  freeDoubleCharArray(arg, 1);
+  free(arg);
   if(success != 0) errMessage();
 }
 
@@ -184,11 +193,7 @@ int main(int argc, char * argv[]) {
   char * path = malloc(sizeof(char) * 5);
   char * startingPath = "/bin";
   strncpy(path, startingPath, strlen(startingPath) + 1);
-  #ifdef DEBUG
-    // printf("strlen(startingPath): %lu\n", strlen(startingPath));
-    // printf("length of path: %lu\n", strlen(path));
-    // printf("Starting path is: %s\n",path);
-  #endif
+
   switch(argc){
     case 1: ;
       // read from stdin
@@ -215,31 +220,26 @@ int main(int argc, char * argv[]) {
           strcpy(command, commands[i]);
           if(strcmp("\n", command) == 0) break;
           char * program = getProgName(command);
-          printf("%s", program);
           if(strcmp("exit", program) == 0) {
             freeDoubleCharArray(commands, numCommands);
             free(commands);
-            free(path);
             free(program);
             free(input);
+            free(path);
             handleExit(command);
           } else if(strcmp("cd", program) == 0) handleCD(command);
           else if(strcmp("path", program) == 0) path = handlePath(path, command);
           // else {
           
           // }
-          printf("new path is: %s\n", path);
           free(program);
         }
         freeDoubleCharArray(commands, numCommands);
         free(commands);
-        free(path);
         free(input);
-        exit(0);
       }
+
       break;
-
-
     case 2:
       // read from argv[1]
       break;
