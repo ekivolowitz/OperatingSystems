@@ -186,37 +186,89 @@ char ** getPaths(char * path) {
 }
 
 
-void executeCommand(char * command, char * program, char * path) {
-  char * slash = "/";
-  char prependedSlash[strlen(program) + strlen(slash) + 1];
-  strcpy(prependedSlash, slash);
-  strcat(prependedSlash, program);
-  prependedSlash[strlen(prependedSlash)] = '\0';
-  char ** allPaths = getPaths(path);
-  for(int j = 0; j < getNumPaths(path); j++) {
-    char fullPath[strlen(prependedSlash) + strlen(allPaths[j]) + 1];
-    strcpy(fullPath, allPaths[j]);
-    strcat(fullPath, prependedSlash);
-    fullPath[strlen(fullPath)] = '\0';
-    #ifdef DEBUG
-      printf("Full path is: %s\n", fullPath);
-    #endif
-    if(access(fullPath, X_OK) == 0) {
-      char ** arguments = getArguments(command);
-      execv(fullPath, arguments);
-      freeDoubleCharArray(arguments, findNumArgs(command));
-      free(arguments);
-      
-    } else {
-      printf("%s does not exist.\n", fullPath);
-    }
-  }
-  freeDoubleCharArray(allPaths, getNumPaths(path));
-  free(allPaths);
+char ** getTokenizedCommandInput(char * command) {
+  char tempCommand[strlen(command) + 1];
+  strcpy(tempCommand, command);
+  char * delim = " \n\t";
 
+  // + 1 item for command name + 1 item for appended NULL
+  int numItems = findNumArgs(command) + 2;
+  int count = 0;
+  char ** items = malloc(sizeof(char *) * numItems);  
+  char * item = tokenize(tempCommand, delim);
+  while(item != NULL) {
+    char * temp = malloc(strlen(item) + 1);
+    strcpy(temp, item);
+    items[count] = temp;
+    count++;
+    item = tokenize(NULL, delim);
+  }
+  items[count] = NULL;
+
+  #ifdef DEBUG
+    for(int i = 0; i < numItems; i++) {
+      printf("The %d index of items is %s\n", i, items[i]);
+    }
+  #endif
+  return items;
 }
 
+void executeCommand(char * command) {
+  
+  int rc = fork();
+  if(rc < 0) {
+    fprintf(stderr, "fork failed\n");
+    exit(1);
+  } else if (rc == 0) {
+    #ifdef DEBUG
+      printf("Beginning child process exec call\n");
+    #endif
+    char ** tok = getTokenizedCommandInput(command);
+    if(access(tok[0], X_OK) == 0) {
+      printf("Found %s\n", tok[0]);
+      execv(tok[0], tok);
+    } else {
+      printf("Did not find %s\n", tok[0]);
+    }
+    freeDoubleCharArray(tok, findNumArgs(command) + 2);
+    printf("This should never be reached\n");
+  } else {
+    wait(NULL);
+    printf("Parent reached\n");
+  }
 
+  // char * slash = "/";
+  // char prependedSlash[strlen(program) + strlen(slash) + 1];
+  // strcpy(prependedSlash, slash);
+  // strcat(prependedSlash, program);
+  // prependedSlash[strlen(prependedSlash)] = '\0';
+  
+  // char ** allPaths = getPaths(path);
+  
+  // for(int j = 0; j < getNumPaths(path); j++) {
+    
+  //   char fullPath[strlen(prependedSlash) + strlen(allPaths[j]) + 1];
+  //   strcpy(fullPath, allPaths[j]);
+  //   strcat(fullPath, prependedSlash);
+  //   fullPath[strlen(fullPath)] = '\0';
+    
+  //   #ifdef DEBUG
+  //     printf("Full path is: %s\n", fullPath);
+  //   #endif
+  //   if(access(fullPath, X_OK) == 0) {
+      
+  //     execv(fullPath, arguments);
+  //     freeDoubleCharArray(arguments, findNumArgs(command));
+  //     free(arguments);
+      
+  //   } else {
+  //     printf("%s does not exist.\n", fullPath);
+  //   }
+  // }
+  // freeDoubleCharArray(allPaths, getNumPaths(path));
+  // free(allPaths);
+
+}
 
 int main(int argc, char * argv[]) {
   char * path = malloc(sizeof(char) * 5);
@@ -233,9 +285,6 @@ int main(int argc, char * argv[]) {
         ssize_t read;
         read = getline(&input, &length, stdin);
         if(read == -1) { 
-          #ifdef DEBUG
-            printf("Error reading from stdin.\n");
-          #endif
           exit(1);
         }
         char tempInput[length];
@@ -259,19 +308,7 @@ int main(int argc, char * argv[]) {
           } else if(strcmp("cd", program) == 0) handleCD(command);
           else if(strcmp("path", program) == 0) path = handlePath(path, command);
           else {
-            int rc = fork();
-            if(rc < 0) {
-              printf("Rhut rho rc < 0\n");
-              exit(2);
-            } else if(rc == 0) {
-              // child process
-              executeCommand(command, program, path);
-
-
-            } else {
-              wait(NULL);
-              printf("Returned from parent\n");
-            }
+            executeCommand(command);
           }
           free(program);
         }
