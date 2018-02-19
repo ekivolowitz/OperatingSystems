@@ -8,3 +8,6 @@ readfile:
 
 fork:
 	gcc -o fork_ fork.c -Wall -Werror -g
+
+test:
+	~cs537-1/tests/bin/test-wish.csh -v -c
