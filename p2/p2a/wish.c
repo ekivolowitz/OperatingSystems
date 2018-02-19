@@ -154,43 +154,54 @@ char ** getArguments(char * command) {
 
 char * handlePath(char * path, char * command) {
 
-  // Gets all of the arguments as a list of strings. Remember to free this shit. 
+  free(path);
   int numberOfArgsInPath = findNumArgs(command);
-  if(numberOfArgsInPath == 0) {
-    //char tempPath[strlen(path) + 1];
-    //strcpy(tempPath, path);
-    free(path);
-    //char * newPath = malloc(sizeof(char) * strlen(tempPath) + 1);
-    //strcpy(newPath, tempPath);
-    char * newPath = malloc(sizeof(char));
-    newPath[0] = '\0';
-    return newPath;
-  }
+  if(numberOfArgsInPath == 0)
+    {
+      char * newPath = malloc(sizeof(char));
+      newPath[0] = '\0';
+      return newPath;
+    }
   char ** addToPaths = getArguments(command);
 
   size_t sizeOfNewPaths = 0;
 
   // have to add 2 at the end. One because strlen excludes the null terminator, one because we have to prepend
   // a space to the string. 
-  for(int pathArg = 0; pathArg < numberOfArgsInPath; pathArg++) sizeOfNewPaths += strlen(addToPaths[pathArg]) + 2;
+  for(int pathArg = 0; pathArg < numberOfArgsInPath; pathArg++) sizeOfNewPaths += strlen(addToPaths[pathArg]) + 1;
   
   // + 1 because strlen does not count the null terminator
-  size_t totalNewPathSize = strlen(path) + sizeOfNewPaths + 1;
+  size_t totalNewPathSize = sizeOfNewPaths;
   char tempPath[totalNewPathSize];
-  strcpy(tempPath, path);
-  free(path);
-
+  tempPath[0] = '\0';
+  
   for(int pathArg = 0; pathArg < numberOfArgsInPath; pathArg++) {
-    strcat(tempPath, " ");
+    if(pathArg != 0) strcat(tempPath, " ");
     strcat(tempPath, addToPaths[pathArg]);
   }
 
-  char * newPath = malloc(sizeof(char) * totalNewPathSize);
+  char * newPath = malloc(sizeof(char) * totalNewPathSize + 1);
   strcpy(newPath, tempPath);
+  newPath[totalNewPathSize] = '\0';
   freeDoubleCharArray(addToPaths, findNumArgs(command));
   free(addToPaths);
   return newPath;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void handleCD(char * command) {
   if(findNumArgs(command) != 1)  {
