@@ -3,3 +3,4 @@ wish
 *.swp
 fork_
 *.dSYM
+uninit.c
