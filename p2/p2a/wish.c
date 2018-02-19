@@ -189,20 +189,6 @@ char * handlePath(char * path, char * command) {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 void handleCD(char * command) {
   if(findNumArgs(command) != 1)  {
     errMessage();
@@ -234,12 +220,6 @@ char ** getPaths(char * path) {
   char tempPath[strlen(path) + 1];
   int numPaths = getNumPaths(path);
   char * delim = " ";
-  if(numPaths <= 0) {
-    #ifdef DEBUG
-      printf("getPaths is borked. Less than or equal to 0 paths.\n");
-    #endif
-    exit(1);
-  }
   strcpy(tempPath, path);
   char ** paths = malloc(sizeof(char *) * numPaths);
   char * splitOnWhiteSpace = tokenize(tempPath, delim);
@@ -257,7 +237,6 @@ char ** getPaths(char * path) {
       printf("Path[%d]: %s\n", i, paths[i]);
     }
   #endif
-
   return paths;
 }
 
@@ -295,6 +274,10 @@ void executeCommand(char * command, char * path) {
   strcpy(tempPath, path);
   int numPaths = getNumPaths(path);
   char ** paths = getPaths(tempPath);
+  if(numPaths == 0) {
+    errMessage();
+    return;
+  }
   char ** tok = getTokenizedCommandInput(command);
   char * fullCommand;
   
@@ -306,6 +289,7 @@ void executeCommand(char * command, char * path) {
     if(access(fullPath, X_OK) == 0) {
       fullCommand = malloc(sizeof(char) * strlen(fullPath) + 1);
       strcpy(fullCommand, fullPath);
+      break;
     } else {
       fullCommand = NULL;
     }
@@ -473,7 +457,7 @@ int main(int argc, char * argv[]) {
         printf("Did not start up wish correctly. Entered too many arguments.\n"); 
       #endif
       errMessage();
-    
+      exit(1);    
   }
   return 0;
 }
