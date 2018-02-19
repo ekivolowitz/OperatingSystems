@@ -4,3 +4,5 @@ wish
 fork_
 *.dSYM
 uninit.c
+uninit
+*.txt
