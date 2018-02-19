@@ -157,12 +157,13 @@ char * handlePath(char * path, char * command) {
   // Gets all of the arguments as a list of strings. Remember to free this shit. 
   int numberOfArgsInPath = findNumArgs(command);
   if(numberOfArgsInPath == 0) {
-    char tempPath[strlen(path) + 1];
-    strcpy(tempPath, path);
-    printf("tempPath is: %s\n", tempPath);
+    //char tempPath[strlen(path) + 1];
+    //strcpy(tempPath, path);
     free(path);
-    char * newPath = malloc(sizeof(char) * strlen(tempPath) + 1);
-    strcpy(newPath, tempPath);
+    //char * newPath = malloc(sizeof(char) * strlen(tempPath) + 1);
+    //strcpy(newPath, tempPath);
+    char * newPath = malloc(sizeof(char));
+    newPath[0] = '\0';
     return newPath;
   }
   char ** addToPaths = getArguments(command);
@@ -370,12 +371,13 @@ int main(int argc, char * argv[]) {
       // read from stdin
       while(1) {
         printf("wish> ");
+        fflush(stdout);
         char * input = NULL;
         size_t length = 0;
         ssize_t read;
         read = getline(&input, &length, stdin);
         if(read == -1) { 
-          exit(1);
+          exit(0);
         }
         char tempInput[length];
         strcpy(tempInput, input);
@@ -397,7 +399,6 @@ int main(int argc, char * argv[]) {
               free(path);
               exit(0);
             } else errMessage();
-            
           } else if(strcmp("cd", program) == 0) handleCD(command);
           else if(strcmp("path", program) == 0) path = handlePath(path, command);
           else {
@@ -434,12 +435,14 @@ int main(int argc, char * argv[]) {
           if(strcmp("\n", command) == 0) break;
           char * program = getProgName(command);
           if(strcmp("exit", program) == 0) {
-            freeDoubleCharArray(commands, numCommands);
-            free(commands);
-            free(program);
-            free(input);
-            free(path);
-            handleExit(command);
+            if(findNumArgs(command) == 0) {
+              freeDoubleCharArray(commands, numCommands);
+              free(commands);
+              free(program);
+              free(input);
+              free(path);
+              exit(0);
+            } else errMessage(); 
           } else if(strcmp("cd", program) == 0) handleCD(command);
           else if(strcmp("path", program) == 0) path = handlePath(path, command);
           else {
