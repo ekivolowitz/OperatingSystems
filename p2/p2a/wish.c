@@ -152,12 +152,6 @@ char ** getArguments(char * command) {
 }
 
 
-
-void handleExit(char * command) {
-  findNumArgs(command) == 0 ? exit(0) : errMessage();
-}
-
-
 char * handlePath(char * path, char * command) {
 
   // Gets all of the arguments as a list of strings. Remember to free this shit. 
@@ -395,12 +389,15 @@ int main(int argc, char * argv[]) {
           if(strcmp("\n", command) == 0) break;
           char * program = getProgName(command);
           if(strcmp("exit", program) == 0) {
-            freeDoubleCharArray(commands, numCommands);
-            free(commands);
-            free(program);
-            free(input);
-            free(path);
-            handleExit(command);
+            if(findNumArgs(command) == 0) {
+              freeDoubleCharArray(commands, numCommands);
+              free(commands);
+              free(program);
+              free(input);
+              free(path);
+              exit(0);
+            } else errMessage();
+            
           } else if(strcmp("cd", program) == 0) handleCD(command);
           else if(strcmp("path", program) == 0) path = handlePath(path, command);
           else {
