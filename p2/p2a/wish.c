@@ -20,8 +20,57 @@ void freeDoubleCharArray(char ** array, int numElements) {
   }
 }
 
+
 char * tokenize(char * string, const char * delim) {
   return strtok(string, delim);
+}
+
+int findNumWhiteSpaces(char * string) {
+  char tempString[strlen(string) + 1];
+  strcpy(tempString, string);
+  int count = 0;
+  char * delim = " ";
+  char * s = tokenize(tempString, delim);
+  while(s != NULL){
+    count++;
+    s = tokenize(NULL, delim);
+  }
+  return count;
+}
+
+int hasRedirect(char * command) {
+  char tempCommand[strlen(command) + 1];
+  strcpy(tempCommand, command);
+  return strchr(tempCommand, '>') == NULL ? 0 : 1;
+}
+
+
+int hasOneRedirect(char * command) {
+  char tempCommand[strlen(command) + 1];
+  strcpy(tempCommand, command);
+  return strchr(tempCommand, '>') == strrchr(tempCommand, '>') && strchr(tempCommand, '>') != NULL ? 1 : 0;
+}
+
+char * getPreRedirect(char * command) {
+  char tempCommand[strlen(command) + 1];
+  strcpy(tempCommand, command);
+  char * delim = ">";
+  char * pre = tokenize(tempCommand, delim);
+  char * ret = malloc(sizeof(char) * strlen(pre) + 1);
+  strcpy(ret, pre);
+  return ret;
+}
+
+char * getPostRedirect(char * command) {
+  char tempCommand[strlen(command) + 1];
+  strcpy(tempCommand, command);
+  char * delim = ">";
+  char * post = tokenize(tempCommand, delim);
+  post = tokenize(NULL, delim);
+  char * ret = malloc(sizeof(char) * strlen(post) + 1);
+  strcpy(ret, post);
+  if(ret[strlen(post)] != '\0') printf("err\n");
+  return ret;
 }
 
 // Expecting modification of string
@@ -66,6 +115,19 @@ int findNumArgs(const char * string) {
     splitOnWhiteSpace = tokenize(NULL, whitespace);
   }
   return numArgs;
+}
+
+int findNumFiles(char * files) {
+  char * whitespace = " \t\n";
+  char tempInput[strlen(files) + 1];
+  strcpy(tempInput, files);
+  int count = 0;
+  char * splitOnWhiteSpace = tokenize(tempInput, whitespace);
+  while(splitOnWhiteSpace != NULL) {
+    count++;
+    splitOnWhiteSpace = tokenize(NULL, whitespace);
+  }
+  return count;
 }
 
 char ** getArguments(char * command) {
@@ -229,6 +291,7 @@ void executeCommand(char * command, char * path) {
   char ** paths = getPaths(tempPath);
   char ** tok = getTokenizedCommandInput(command);
   char * fullCommand;
+  
   for(int i = 0; i < numPaths; i++) {
     char fullPath[strlen(tok[0]) + strlen(paths[i]) + 2];
     strcpy(fullPath, paths[i]);
@@ -237,22 +300,65 @@ void executeCommand(char * command, char * path) {
     if(access(fullPath, X_OK) == 0) {
       fullCommand = malloc(sizeof(char) * strlen(fullPath) + 1);
       strcpy(fullCommand, fullPath);
+    } else {
+      fullCommand = NULL;
     }
   }
 
   if(fullCommand == NULL) {
     errMessage();
+    freeDoubleCharArray(tok, findNumArgs(command) + 2);
+    free(tok);
+    freeDoubleCharArray(paths, numPaths);
+    free(paths);
+
     return;
   } 
-  
-  int rc = fork();
-  if(rc < 0) {
-    fprintf(stderr, "fork failed\n");
-    exit(1);
-  } else if (rc == 0) {
-    execv(fullCommand, tok);
-  } else wait(NULL);
 
+  if(hasRedirect(command)) {
+    if(hasOneRedirect(command)) {
+      char * preRedirect = getPreRedirect(command);
+      char * postRedirect = getPostRedirect(command);
+      #ifdef DEBUG
+        printf("Full command is %s\n", fullCommand);
+        printf("preRedirect is: %s\n", preRedirect);
+        printf("postRedirect is: %s", postRedirect);
+      #endif
+      char ** preRedirectTok = getTokenizedCommandInput(preRedirect);
+      int numAfterRedirect = findNumFiles(postRedirect);
+      if(numAfterRedirect != 1) {
+        errMessage();
+      } else {
+        int rc = fork();
+        if(rc < 0) {
+          exit(1);
+        } else if(rc == 0) {
+          char * delim = " \t\n";
+          char * cleanedPostRedirect = tokenize(postRedirect, delim);
+          freopen(cleanedPostRedirect, "w", stdout);
+          execv(fullCommand, preRedirectTok);
+        } else {
+          wait(NULL);
+        }
+      }
+      freeDoubleCharArray(preRedirectTok, findNumWhiteSpaces(preRedirect));
+      free(preRedirect);
+      free(postRedirect);
+      free(preRedirectTok);
+
+    } else {
+      errMessage();
+    }
+  } else {
+    int rc = fork();
+    if(rc < 0) {
+      fprintf(stderr, "fork failed\n");
+      exit(1);
+    } else if (rc == 0) {
+      execv(fullCommand, tok);
+    } else wait(NULL);
+  }
+  free(fullCommand);
   freeDoubleCharArray(tok, findNumArgs(command) + 2);
   free(tok);
   freeDoubleCharArray(paths, numPaths);
@@ -308,8 +414,47 @@ int main(int argc, char * argv[]) {
       }
 
       break;
-    case 2:
+    case 2: ;
       // read from argv[1]
+      FILE * fp = fopen(argv[1], "r");
+      if(fp == NULL) {
+        errMessage();
+        exit(1);
+      }
+      char * input;
+      size_t length = 0;
+      ssize_t read;
+      while((read = getline(&input, &length, fp)) != -1) {  
+        char tempInput[length];
+        strcpy(tempInput, input);
+        // printf("%s", input);
+        int numCommands = 0;
+        char ** commands = getCommands(tempInput, &numCommands);
+
+        for(int i = 0; i < numCommands; ++i) {
+          char command[strlen(commands[i]) + 1];
+          strcpy(command, commands[i]);
+          if(strcmp("\n", command) == 0) break;
+          char * program = getProgName(command);
+          if(strcmp("exit", program) == 0) {
+            freeDoubleCharArray(commands, numCommands);
+            free(commands);
+            free(program);
+            free(input);
+            free(path);
+            handleExit(command);
+          } else if(strcmp("cd", program) == 0) handleCD(command);
+          else if(strcmp("path", program) == 0) path = handlePath(path, command);
+          else {
+            executeCommand(command, path);
+          }
+          free(program);
+        }
+        freeDoubleCharArray(commands, numCommands);
+        free(commands);
+        // free(input);
+      }
+      
       break;
 
     default:
@@ -317,7 +462,7 @@ int main(int argc, char * argv[]) {
         printf("Did not start up wish correctly. Entered too many arguments.\n"); 
       #endif
       errMessage();
-      
+    
   }
   return 0;
 }
