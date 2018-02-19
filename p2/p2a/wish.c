@@ -98,6 +98,11 @@ char * getProgName(char * command) {
   char tempInput[strlen(command)];
   strcpy(tempInput, command);
   char * splitOnWhiteSpace = tokenize(tempInput, delim);
+  if(splitOnWhiteSpace == NULL) {
+    char * ret = malloc(sizeof(char));
+    ret[0] = '\0';
+    return ret;
+  }
   char * temp = malloc(sizeof(char) * strlen(splitOnWhiteSpace) + 1);
   strcpy(temp, splitOnWhiteSpace);
   return temp; 
@@ -384,6 +389,16 @@ int main(int argc, char * argv[]) {
           char command[strlen(commands[i]) + 1];
           strcpy(command, commands[i]);
           if(strcmp("\n", command) == 0) break;
+          int isWhiteSpace = 1;
+          for(int j = 0; j < strlen(command); j++) {
+            if(command[j] == ' ' || command[j] == '\n' || command[j] == '\t') {
+              continue;
+            } else {
+              isWhiteSpace = 0;
+              break;
+            }
+          }
+          if(isWhiteSpace) break;
           char * program = getProgName(command);
           if(strcmp("exit", program) == 0) {
             if(findNumArgs(command) == 0) {
@@ -427,6 +442,16 @@ int main(int argc, char * argv[]) {
         for(int i = 0; i < numCommands; ++i) {
           char command[strlen(commands[i]) + 1];
           strcpy(command, commands[i]);
+          int isWhiteSpace = 1;
+          for(int j = 0; j < strlen(command); j++) {
+            if(command[j] == ' ' || command[j] == '\n' || command[j] == '\t') {
+              continue;
+            } else {
+              isWhiteSpace = 0;
+              break;
+            }
+          }
+          if(isWhiteSpace) break;
           if(strcmp("\n", command) == 0) break;
           char * program = getProgName(command);
           if(strcmp("exit", program) == 0) {
