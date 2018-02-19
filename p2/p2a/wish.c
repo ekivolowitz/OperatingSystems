@@ -4,7 +4,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/wait.h>
-#define DEBUG
+// #define DEBUG
 
 // Write a function to check how many args are in a statement. There will be a lot of arg
 // number checking. 
@@ -148,7 +148,8 @@ void handleCD(char * command) {
 }
 
 int getNumPaths(char * path) {
-  char tempPath[strlen(path)];
+  char tempPath[strlen(path) + 1];
+  for(int i = 0; i < strlen(path); i++) tempPath[i] = '\0';
   char * delim = " ";
   int count = 0;
   strcpy(tempPath, path);
@@ -171,17 +172,24 @@ char ** getPaths(char * path) {
     #endif
     exit(1);
   }
-  char ** paths = malloc(sizeof(char *) * numPaths);
   strcpy(tempPath, path);
+  char ** paths = malloc(sizeof(char *) * numPaths);
   char * splitOnWhiteSpace = tokenize(tempPath, delim);
   int count = 0;
   while(splitOnWhiteSpace != NULL) {
-    char * string = malloc(sizeof(char) * strlen(splitOnWhiteSpace) + 1);
+    char * string = malloc(sizeof(char) * (strlen(splitOnWhiteSpace) + 1));
     strcpy(string, splitOnWhiteSpace);
     paths[count] = string;
     count++;
     splitOnWhiteSpace = tokenize(NULL, delim);
   }
+
+  #ifdef DEBUG
+    for(int i = 0; i < numPaths; i++) {
+      printf("Path[%d]: %s\n", i, paths[i]);
+    }
+  #endif
+
   return paths;
 }
 
@@ -213,60 +221,42 @@ char ** getTokenizedCommandInput(char * command) {
   return items;
 }
 
-void executeCommand(char * command) {
+void executeCommand(char * command, char * path) {
+  
+  char tempPath[strlen(path) + 1];
+  strcpy(tempPath, path);
+  int numPaths = getNumPaths(path);
+  char ** paths = getPaths(tempPath);
+  char ** tok = getTokenizedCommandInput(command);
+  char * fullCommand;
+  for(int i = 0; i < numPaths; i++) {
+    char fullPath[strlen(tok[0]) + strlen(paths[i]) + 2];
+    strcpy(fullPath, paths[i]);
+    strcat(fullPath, "/");
+    strcat(fullPath, tok[0]);
+    if(access(fullPath, X_OK) == 0) {
+      fullCommand = malloc(sizeof(char) * strlen(fullPath) + 1);
+      strcpy(fullCommand, fullPath);
+    }
+  }
+
+  if(fullCommand == NULL) {
+    errMessage();
+    return;
+  } 
   
   int rc = fork();
   if(rc < 0) {
     fprintf(stderr, "fork failed\n");
     exit(1);
   } else if (rc == 0) {
-    #ifdef DEBUG
-      printf("Beginning child process exec call\n");
-    #endif
-    char ** tok = getTokenizedCommandInput(command);
-    if(access(tok[0], X_OK) == 0) {
-      printf("Found %s\n", tok[0]);
-      execv(tok[0], tok);
-    } else {
-      printf("Did not find %s\n", tok[0]);
-    }
-    freeDoubleCharArray(tok, findNumArgs(command) + 2);
-    printf("This should never be reached\n");
-  } else {
-    wait(NULL);
-    printf("Parent reached\n");
-  }
+    execv(fullCommand, tok);
+  } else wait(NULL);
 
-  // char * slash = "/";
-  // char prependedSlash[strlen(program) + strlen(slash) + 1];
-  // strcpy(prependedSlash, slash);
-  // strcat(prependedSlash, program);
-  // prependedSlash[strlen(prependedSlash)] = '\0';
-  
-  // char ** allPaths = getPaths(path);
-  
-  // for(int j = 0; j < getNumPaths(path); j++) {
-    
-  //   char fullPath[strlen(prependedSlash) + strlen(allPaths[j]) + 1];
-  //   strcpy(fullPath, allPaths[j]);
-  //   strcat(fullPath, prependedSlash);
-  //   fullPath[strlen(fullPath)] = '\0';
-    
-  //   #ifdef DEBUG
-  //     printf("Full path is: %s\n", fullPath);
-  //   #endif
-  //   if(access(fullPath, X_OK) == 0) {
-      
-  //     execv(fullPath, arguments);
-  //     freeDoubleCharArray(arguments, findNumArgs(command));
-  //     free(arguments);
-      
-  //   } else {
-  //     printf("%s does not exist.\n", fullPath);
-  //   }
-  // }
-  // freeDoubleCharArray(allPaths, getNumPaths(path));
-  // free(allPaths);
+  freeDoubleCharArray(tok, findNumArgs(command) + 2);
+  free(tok);
+  freeDoubleCharArray(paths, numPaths);
+  free(paths);
 
 }
 
@@ -308,7 +298,7 @@ int main(int argc, char * argv[]) {
           } else if(strcmp("cd", program) == 0) handleCD(command);
           else if(strcmp("path", program) == 0) path = handlePath(path, command);
           else {
-            executeCommand(command);
+            executeCommand(command, path);
           }
           free(program);
         }
