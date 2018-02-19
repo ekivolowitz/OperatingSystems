@@ -20,8 +20,15 @@ void freeDoubleCharArray(char ** array, int numElements) {
   }
 }
 
+
 char * tokenize(char * string, const char * delim) {
   return strtok(string, delim);
+}
+
+int hasOneRedirect(char * command) {
+  char tempCommand[strlen(command) + 1];
+  strcpy(tempCommand, command);
+  return strchr(tempCommand, '>') == strrchr(tempCommand, '>') && strchr(tempCommand, '>') != NULL ? 1 : 0;
 }
 
 // Expecting modification of string
@@ -229,6 +236,7 @@ void executeCommand(char * command, char * path) {
   char ** paths = getPaths(tempPath);
   char ** tok = getTokenizedCommandInput(command);
   char * fullCommand;
+  
   for(int i = 0; i < numPaths; i++) {
     char fullPath[strlen(tok[0]) + strlen(paths[i]) + 2];
     strcpy(fullPath, paths[i]);
@@ -244,8 +252,11 @@ void executeCommand(char * command, char * path) {
     errMessage();
     return;
   } 
-  
+
+  if()
+
   int rc = fork();
+
   if(rc < 0) {
     fprintf(stderr, "fork failed\n");
     exit(1);
