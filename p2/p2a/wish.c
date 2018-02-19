@@ -418,7 +418,7 @@ int main(int argc, char * argv[]) {
       size_t length = 0;
       ssize_t read;
       while((read = getline(&input, &length, fp)) != -1) {  
-        char tempInput[length];
+        char tempInput[strlen(input) + 1];
         strcpy(tempInput, input);
         // printf("%s", input);
         int numCommands = 0;
