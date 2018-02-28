@@ -226,6 +226,7 @@ char ** getPaths(char * path) {
   int numPaths = getNumPaths(path);
   char * delim = " ";
   strcpy(tempPath, path);
+  if(numPaths == 0) return NULL;
   char ** paths = malloc(sizeof(char *) * numPaths);
   char * splitOnWhiteSpace = tokenize(tempPath, delim);
   int count = 0;

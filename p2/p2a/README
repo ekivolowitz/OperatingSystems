@@ -1,0 +1,7 @@
+I split up my main into a switch statement. Read from stdin, read from file, default error. 
+I wrote a whole bunch of helper functions that do basic things, like count how many arguments I have
+or return the file name in a redirect command. I used a series of those helper functions to make semantically short.
+My code looks like sh*t though. 
+
+I'd make a function out of the core functionality then call said function in the switch statement, but I didn't do it
+because then I'd have to change my path logic. 

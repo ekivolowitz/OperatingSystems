@@ -6,13 +6,8 @@
 #include "proc.h"
 #include "sysfunc.h"
 
-extern int readCalls;
 
-int
-sys_getreadcount(void) {
-  return readCalls;
-}
-
+extern int GLOB_TICKETS;
 
 int
 sys_fork(void)
@@ -95,4 +90,23 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+int
+sys_settickets(void) {
+  int number;
+  argint(0, &number);
+  if(number < 1) return -1;
+  cprintf("PID: %d | numTickets: %d | GLOB_TICKETS: %d\n", proc->pid, proc->numTickets, GLOB_TICKETS);
+  GLOB_TICKETS += number;
+  proc->numTickets = number;  
+  // cprintf("PID: %d | numTickets: %d\n", proc->pid, proc->numTickets);
+  cprintf("PID: %d | numTickets: %d | GLOB_TICKETS: %d\n", proc->pid, proc->numTickets, GLOB_TICKETS);
+  return 0;
+}
+
+int
+sys_getpinfo(void) {
+  cprintf("This is a test\n");
+  return 0;
 }
