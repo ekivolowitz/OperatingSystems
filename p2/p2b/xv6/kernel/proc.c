@@ -5,13 +5,9 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
-
 extern int GLOB_TICKETS;
 
-struct {
-  struct spinlock lock;
-  struct proc proc[NPROC];
-} ptable;
+PTABLE ptable;
 
 static struct proc *initproc;
 
@@ -25,6 +21,11 @@ void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
+}
+
+
+PTABLE * getPTable(void) {
+  return &ptable;
 }
 
 // Look in the process table for an UNUSED proc.
@@ -48,7 +49,6 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   release(&ptable.lock);
-
   // Allocate kernel stack if possible.
   if((p->kstack = kalloc()) == 0){
     p->state = UNUSED;
@@ -69,7 +69,6 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
-
   return p;
 }
 
@@ -79,7 +78,6 @@ userinit(void)
 {
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
-   
   p = allocproc();
   acquire(&ptable.lock);
   initproc = p;
@@ -98,7 +96,7 @@ userinit(void)
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
   p->numTickets = 1;
-  GLOB_TICKETS += 1;
+  p->ticks = 0;
   p->state = RUNNABLE;
   release(&ptable.lock);
 }
@@ -147,11 +145,7 @@ fork(void)
   np->parent = proc;
   *np->tf = *proc->tf;
   np->numTickets = proc->numTickets;
-  cprintf("Adding to global tickets. Currently %d\n", GLOB_TICKETS);
-  GLOB_TICKETS += np->numTickets;
-  cprintf("Adding np->numTickets (%d)\n", np->numTickets);
-  cprintf("GLOB_TICKETS == %d\n", GLOB_TICKETS);
-  // Clear %eax so that fork returns 0 in the child.
+  np->ticks = 0;
   np->tf->eax = 0;
 
   for(i = 0; i < NOFILE; i++)
@@ -231,10 +225,8 @@ wait(void)
         freevm(p->pgdir);
         p->state = UNUSED;
         p->pid = 0;
-        cprintf("WAIT> GLOB_TICKETS == %d | numTickets == %d | GLOB_TICKETS should equal %d\n", GLOB_TICKETS, p->numTickets, GLOB_TICKETS - p->numTickets);
-        GLOB_TICKETS -= p->numTickets;
-        cprintf("WAIT> GLOB_TICKETS IS NOW %d\n", GLOB_TICKETS);
         p->numTickets = 0;
+        p->ticks = 0;
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
@@ -254,6 +246,19 @@ wait(void)
   }
 }
 
+    /*  cprintf("\n\n\n");
+      cprintf("uint sz: %d\n", p->sz);
+      cprintf("pde_t*: pgdir %p\n", p->pgdir);
+      cprintf("char *kstack: %s\n", p->kstack);
+      cprintf("enum procstate state: %d\n", p->state);
+      cprintf("int pid: %d\n", p->pid);
+      cprintf("struct proc *parent: %p\n", p->parent);
+      cprintf("struct trapframe *tf: %p\n",p->tf);
+      cprintf("void *chan %p\n", p->chan);
+      cprintf("int killed: %d\n", p->killed);
+      cprintf("char name[16]: %s\n", p->name);
+      cprintf("int numTickets: %d\n", p->numTickets);
+      cprintf("int ticks: %d\n", p->ticks);*/
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -265,35 +270,48 @@ void
 scheduler(void)
 {
   struct proc *p;
-
+  
   for(;;){
     // Enable interrupts on this processor.
     sti();
-
+    
+    uint xticks = 0;
+    acquire(&tickslock);
+    xticks = ticks;
+    release(&tickslock);
+    
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
-
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
+    uint counter = 0; 
+    uint glob_numTickets = 0;
+     
+    //counts global number of tickets on running process 
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+      if(p->state == RUNNABLE) glob_numTickets += (uint) p->numTickets;
+    }
+    if(glob_numTickets == 0){}
+    else {
+      uint winner = xticks % glob_numTickets; 
+    
+      for(p = ptable.proc ;; p++) {
+        if(p->state != RUNNABLE) 
+          continue;
+        counter += (uint) p->numTickets;
+        if(counter > winner)
+          break;
+      }
+    
       proc = p;
       switchuvm(p);
+      p->ticks += 1;
       p->state = RUNNING;
       swtch(&cpu->scheduler, proc->context);
       switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
       proc = 0;
-    } // End of forever loop
+    }
     release(&ptable.lock);
-
   }
 }
-
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state.
 void

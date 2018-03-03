@@ -9,7 +9,7 @@
 #define SEG_UDATA 5  // user data+stack
 #define SEG_TSS   6  // this process's task state
 #define NSEGS     7
-
+#include "spinlock.h"
 // Per-CPU state
 struct cpu {
   uchar id;                    // Local APIC ID; index into cpus[] below
@@ -75,8 +75,16 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   int numTickets;              // Added this
+  int ticks;                   // Added this
 
 };
+
+typedef struct {
+  struct spinlock lock;
+  struct proc proc[NPROC];
+} PTABLE;
+
+PTABLE * getPTable(void);
 
 // Process memory is laid out contiguously, low addresses first:
 //   text

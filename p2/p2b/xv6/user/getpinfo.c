@@ -2,9 +2,11 @@
 #include "stat.h"
 #include "user.h"
 #include "pstat.h"
+//#define DEBUG
 int
 main(int argc, char *argv[]) {
   settickets(10);
-  printf(1, "Running getpinfo()\n");
+  struct pstat p;
+  getpinfo(&p);
   exit();
 }

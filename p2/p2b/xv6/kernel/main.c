@@ -4,14 +4,13 @@
 #include "mmu.h"
 #include "proc.h"
 #include "x86.h"
-
 static void bootothers(void);
 static void mpmain(void);
 void jmpkstack(void)  __attribute__((noreturn));
 void mainc(void);
 static void cinit(void);
 
-int GLOB_TICKETS = 0;
+int GLOB_TICKETS = 1;
 
 // Bootstrap processor starts running C code here.
 // Allocate a real stack and switch to it, first

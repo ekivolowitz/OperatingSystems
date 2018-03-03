@@ -1,0 +1,2 @@
+tools/dot-bochsrc:# version is only available when you use "--with-wx" on the configure 
+tools/dot-bochsrc:# exception is french macs, that do have a "at"-like keyboard.
